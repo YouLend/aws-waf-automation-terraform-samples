@@ -349,6 +349,90 @@ variable "IPRetentionPeriod" {
   }
 }
 
+
+variable "stage" {
+  type        = string
+  description = "Stage (e.g. `prod`, `dev`, `staging`, `sandbox`)"
+}
+
+variable "environments" {
+  type        = list(string)
+  description = "A list of environments (e.g. [`devops`,`barbican`....etc])"
+
+}
+
+
+variable "aws_region" {
+  description = "AWS region to launch servers."
+  type        = string
+  default     = "eu-west-1"
+}
+
+
+variable "managed_rules" {
+  type = map(object({
+    name                                     = string
+    priority                                 = number
+    managed_rule_group_statement_name        = string
+    managed_rule_group_statement_vendor_name = string
+    rule_action_override = list(object({
+      rule_name   = string
+      rule_action = string
+    }))
+    managed_rule_group_configs = list(object({
+      inspection_level = string
+      login_path       = string
+      username_field   = string
+      password_field   = string
+    }))
+
+  }))
+}
+
+variable "custom_rule_group" {
+  type = map(object({
+    name     = string
+    priority = number
+    rule_action_override = list(object({
+      rule_name   = string
+      rule_action = string
+    }))
+  }))
+}
+
+
+
+variable "custom_rules" {
+  type = map(object({
+    name     = string
+    priority = number
+    action   = string
+    geo_match = list(object({
+      country_codes = list(string)
+    }))
+    rate_based = list(object({
+      request_threshold = number
+    }))
+    or_statement = list(object({
+      ip_set     = list(string)
+      xss_match  = list(string)
+      sqli_match = list(string)
+    }))
+
+  }))
+}
+
+
+variable "ip_set" {
+  type = map(object({
+    name     = string
+    description = string
+    ip_address_version = string
+    addresses   = list(string)
+  }))
+}
+
+
 locals {
   CustomResourceLambdaAccess = var.ReputationListsProtectionActivated == "yes" || local.AthenaLogParser == "yes" ? "yes" : "no"
 }

@@ -447,118 +447,18 @@ resource "aws_iam_role_policy_attachment" "test-attach-log" {
 
 #IPV4 sets
 
-resource "aws_wafv2_ip_set" "WAFWhitelistSetV4" {
-  name               = "WAFWhitelistSetV41"
-  description        = "Block Bad Bot IPV4 addresses"
-  scope              = local.SCOPE
-  ip_address_version = "IPV4"
-  addresses          = []
+module "ip_set" {
+  source = "./modules/ip_set"
+  ip_set = var.ip_set
 }
 
-resource "aws_wafv2_ip_set" "WAFBlacklistSetV4" {
-  name               = "WAFBlacklistSetV41"
-  description        = "Block Bad Bot IPV6 addresses"
-  scope              = local.SCOPE
-  ip_address_version = "IPV6"
-  addresses          = []
-}
 
-resource "aws_wafv2_ip_set" "WAFBadBotSetV4" {
-  count              = var.BadBotProtectionActivated == "yes" ? 1 : 0
-  name               = "WAFBadBotSetV41"
-  description        = "Block Bad Bot IPV4 addresses"
-  scope              = local.SCOPE
-  ip_address_version = "IPV4"
-  addresses          = []
-}
 
-resource "aws_wafv2_ip_set" "WAFReputationListsSetV4" {
-  count              = var.ReputationListsProtectionActivated == "yes" ? 1 : 0
-  name               = "WAFReputationListsSetV41"
-  description        = "Block Reputation List IPV4 addresses"
-  scope              = local.SCOPE
-  ip_address_version = "IPV4"
-  addresses          = []
-  lifecycle {
-    ignore_changes = [
-      addresses
-    ]
-  }
-}
 
-resource "aws_wafv2_ip_set" "WAFHttpFloodSetV4" {
-  name               = "WAFHttpFloodSetV41"
-  description        = "Block HTTP Flood IPV4 addresses"
-  scope              = local.SCOPE
-  ip_address_version = "IPV4"
-  addresses          = []
-}
-
-resource "aws_wafv2_ip_set" "WAFScannersProbesSetV4" {
-  count              = var.ScannersProbesProtectionActivated == "yes" ? 1 : 0
-  name               = "WAFScannersProbesSetV41"
-  description        = "Block HTTP Flood IPV4 addresses"
-  scope              = local.SCOPE
-  ip_address_version = "IPV4"
-  addresses          = []
-}
-
-#IPV6 sets
-
-resource "aws_wafv2_ip_set" "WAFWhitelistSetV6" {
-  name               = "WAFWhitelistSetV61"
-  description        = "Block Bad Bot IPV4 addresses"
-  scope              = local.SCOPE
-  ip_address_version = "IPV4"
-  addresses          = []
-}
-
-resource "aws_wafv2_ip_set" "WAFBlacklistSetV6" {
-  name               = "WAFBlacklistSetV61"
-  description        = "Block Bad Bot IPV6 addresses"
-  scope              = local.SCOPE
-  ip_address_version = "IPV6"
-  addresses          = []
-}
-
-resource "aws_wafv2_ip_set" "WAFBadBotSetV6" {
-  count              = var.BadBotProtectionActivated == "yes" ? 1 : 0
-  name               = "WAFBadBotSetV61"
-  description        = "Block Bad Bot IPV6 addresses"
-  scope              = local.SCOPE
-  ip_address_version = "IPV6"
-  addresses          = []
-}
-
-resource "aws_wafv2_ip_set" "WAFReputationListsSetV6" {
-  count              = var.ReputationListsProtectionActivated == "yes" ? 1 : 0
-  name               = "WAFReputationListsSetV61"
-  description        = "Block Reputation List IPV6 addresses"
-  scope              = local.SCOPE
-  ip_address_version = "IPV4"
-  addresses          = []
-  lifecycle {
-    ignore_changes = [
-      addresses
-    ]
-  }
-}
-
-resource "aws_wafv2_ip_set" "WAFHttpFloodSetV6" {
-  name               = "WAFHttpFloodSetV61"
-  description        = "Block HTTP Flood IPV6 addresses"
-  scope              = local.SCOPE
-  ip_address_version = "IPV6"
-  addresses          = []
-}
-
-resource "aws_wafv2_ip_set" "WAFScannersProbesSetV6" {
-  count              = var.ScannersProbesProtectionActivated == "yes" ? 1 : 0
-  name               = "WAFScannersProbesSetV61"
-  description        = "Block HTTP Flood IPV6 addresses"
-  scope              = local.SCOPE
-  ip_address_version = "IPV6"
-  addresses          = []
+module "custom_rule_group" {
+  source = "./modules/rule_group"
+  stage  = var.stage
+  rules  = var.custom_rules
 }
 
 
@@ -567,442 +467,17 @@ resource "aws_wafv2_ip_set" "WAFScannersProbesSetV6" {
 #   WAFWebACL:
 # ----------------------------------------------------------------------------------------------------------------------
 
-resource "aws_wafv2_web_acl" "wafacl" {
-  name        = "wafwebacl-rules-${random_id.server.hex}"
-  description = "Custom WAFWebACL"
-  scope       = local.SCOPE
-  default_action {
-    allow {}
-  }
-  visibility_config {
-    cloudwatch_metrics_enabled = true
-    metric_name                = "WAFWebACL-metric"
-    sampled_requests_enabled   = true
-  }
 
-  rule {
-    name     = "AWS-AWSManagedRulesKnownBadInputsRuleSet"
-    priority = 10
-
-    override_action {
-      none {}
-    }
-
-    statement {
-      managed_rule_group_statement {
-        name        = "AWSManagedRulesKnownBadInputsRuleSet"
-        vendor_name = "AWS"
-      }
-    }
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "WAFWebACL-metric"
-      sampled_requests_enabled   = true
-    }
-  }
-  rule {
-    name     = "aws-AWSManagedRulesCommonRuleSet"
-    priority = 0
-    override_action {
-      none {}
-    }
-
-    statement {
-      managed_rule_group_statement {
-        vendor_name = "AWS"
-        name        = "AWSManagedRulesCommonRuleSet"
-      }
-    }
-
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "MetricForAMRCRS"
-      sampled_requests_enabled   = true
-    }
-  }
-
-  rule {
-    name     = "WAFWhitelistRule1"
-    priority = 1
-    action {
-      allow {}
-    }
-
-    statement {
-      or_statement {
-        statement {
-          ip_set_reference_statement {
-            arn = aws_wafv2_ip_set.WAFWhitelistSetV4.arn
-          }
-        }
-        statement {
-          ip_set_reference_statement {
-            arn = aws_wafv2_ip_set.WAFWhitelistSetV4.arn
-          }
-        }
-      }
-    }
-
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "MetricForWhitelistRule"
-      sampled_requests_enabled   = true
-    }
-  }
-
-  rule {
-    name     = "WAFBlacklistRule1"
-    priority = 2
-    action {
-      block {}
-    }
-
-    statement {
-      or_statement {
-        statement {
-          ip_set_reference_statement {
-            arn = aws_wafv2_ip_set.WAFBlacklistSetV4.arn
-          }
-        }
-        statement {
-          ip_set_reference_statement {
-            arn = aws_wafv2_ip_set.WAFBlacklistSetV4.arn
-          }
-        }
-      }
-    }
-
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "MetricForBlacklistRule"
-      sampled_requests_enabled   = true
-    }
-  }
-
-  rule {
-    name     = "HttpFloodRegularRule"
-    priority = 3
-    action {
-      block {}
-    }
-
-    statement {
-      or_statement {
-        statement {
-          ip_set_reference_statement {
-            arn = local.WAFHttpFloodSetIPV4arn
-          }
-        }
-        statement {
-          ip_set_reference_statement {
-            arn = local.WAFHttpFloodSetIPV6arn
-          }
-        }
-      }
-    }
-
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "MetricForHttpFloodRegularRule"
-      sampled_requests_enabled   = true
-    }
-  }
-
-  rule {
-    name     = "HttpFloodRateBasedRule"
-    priority = 4
-    action {
-      block {}
-    }
-
-    statement {
-      rate_based_statement {
-        aggregate_key_type = "IP"
-        limit              = var.RequestThreshold
-      }
-    }
-
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "MetricForHttpFloodRateBasedRule"
-      sampled_requests_enabled   = true
-    }
-  }
-
-  rule {
-    name     = "ScannersAndProbesRule"
-    priority = 5
-    action {
-      block {}
-    }
-
-    statement {
-      or_statement {
-        statement {
-          ip_set_reference_statement {
-            arn = aws_wafv2_ip_set.WAFScannersProbesSetV4[0].arn
-          }
-        }
-        statement {
-          ip_set_reference_statement {
-            arn = aws_wafv2_ip_set.WAFScannersProbesSetV6[0].arn
-          }
-        }
-      }
-    }
-
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "MetricForScannersProbesRulee"
-      sampled_requests_enabled   = true
-    }
-  }
-
-  rule {
-    name     = "IPReputationListsRule"
-    priority = 6
-    action {
-      block {}
-    }
-
-    statement {
-      or_statement {
-        statement {
-          ip_set_reference_statement {
-            arn = aws_wafv2_ip_set.WAFReputationListsSetV4[0].arn
-          }
-        }
-        statement {
-          ip_set_reference_statement {
-            arn = aws_wafv2_ip_set.WAFReputationListsSetV6[0].arn
-          }
-        }
-      }
-    }
-
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "MetricForIPReputationListsRule"
-      sampled_requests_enabled   = true
-    }
-  }
-
-  rule {
-    name     = "BadBotRule"
-    priority = 7
-    action {
-      block {}
-    }
-
-    statement {
-      or_statement {
-        statement {
-          ip_set_reference_statement {
-            arn = aws_wafv2_ip_set.WAFBadBotSetV4[0].arn
-          }
-        }
-        statement {
-          ip_set_reference_statement {
-            arn = aws_wafv2_ip_set.WAFBadBotSetV6[0].arn
-          }
-        }
-      }
-    }
-
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "MetricForBadBotRule"
-      sampled_requests_enabled   = true
-    }
-  }
-
-  rule {
-    name     = "SqlInjectionRule"
-    priority = 20
-    action {
-      block {}
-    }
-
-    statement {
-      or_statement {
-        statement {
-          sqli_match_statement {
-            field_to_match {
-              query_string {}
-            }
-            text_transformation {
-              priority = 1
-              type     = "URL_DECODE"
-            }
-
-            text_transformation {
-              priority = 2
-              type     = "HTML_ENTITY_DECODE"
-            }
-          }
-        }
-        statement {
-          sqli_match_statement {
-            field_to_match {
-              body {}
-            }
-            text_transformation {
-              priority = 1
-              type     = "URL_DECODE"
-            }
-
-            text_transformation {
-              priority = 2
-              type     = "HTML_ENTITY_DECODE"
-            }
-          }
-        }
-        statement {
-          sqli_match_statement {
-            field_to_match {
-              uri_path {}
-            }
-            text_transformation {
-              priority = 1
-              type     = "URL_DECODE"
-            }
-
-            text_transformation {
-              priority = 2
-              type     = "HTML_ENTITY_DECODE"
-            }
-          }
-        }
-        statement {
-          sqli_match_statement {
-            field_to_match {
-              single_header {
-                name = "authorization"
-              }
-            }
-            text_transformation {
-              priority = 1
-              type     = "URL_DECODE"
-            }
-
-            text_transformation {
-              priority = 2
-              type     = "HTML_ENTITY_DECODE"
-            }
-          }
-        }
-        statement {
-          sqli_match_statement {
-            field_to_match {
-              single_header {
-                name = "cookie"
-              }
-            }
-            text_transformation {
-              priority = 1
-              type     = "URL_DECODE"
-            }
-
-            text_transformation {
-              priority = 2
-              type     = "HTML_ENTITY_DECODE"
-            }
-          }
-        }
-      }
-    }
-
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "MetricForSqlInjectionRule"
-      sampled_requests_enabled   = true
-    }
-  }
-
-  rule {
-    name     = "XssRule"
-    priority = 30
-    action {
-      block {}
-    }
-
-    statement {
-      or_statement {
-        statement {
-          xss_match_statement {
-            field_to_match {
-              query_string {}
-            }
-            text_transformation {
-              priority = 1
-              type     = "URL_DECODE"
-            }
-            text_transformation {
-              priority = 2
-              type     = "HTML_ENTITY_DECODE"
-            }
-          }
-        }
-        statement {
-          xss_match_statement {
-            field_to_match {
-              body {}
-            }
-            text_transformation {
-              priority = 1
-              type     = "URL_DECODE"
-            }
-
-            text_transformation {
-              priority = 2
-              type     = "HTML_ENTITY_DECODE"
-            }
-          }
-        }
-        statement {
-          xss_match_statement {
-            field_to_match {
-              uri_path {}
-            }
-            text_transformation {
-              priority = 1
-              type     = "URL_DECODE"
-            }
-
-            text_transformation {
-              priority = 2
-              type     = "HTML_ENTITY_DECODE"
-            }
-          }
-        }
-        statement {
-          xss_match_statement {
-            field_to_match {
-              single_header {
-                name = "cookie"
-              }
-            }
-            text_transformation {
-              priority = 1
-              type     = "URL_DECODE"
-            }
-
-            text_transformation {
-              priority = 2
-              type     = "HTML_ENTITY_DECODE"
-            }
-          }
-        }
-      }
-    }
-
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "MetricForXssRule"
-      sampled_requests_enabled   = true
-    }
-  }
+module "aws_wafv2_web_acl_managed_rules" {
+  source                = "./modules/web_acl"
+  stage                 = var.stage
+  environments          = var.environments
+  custom_rule_group_arn = module.custom_rule_group.custom_rule_group_arn
+  custom_rule_group     = var.custom_rule_group
+  rules                 = var.managed_rules
 }
+
+
 
 # ----------------------------------------------------------------------------------------------------------------------
 # Dynamo DB table -This DynamoDB table constains transactional ip retention data that will be expired by DynamoDB TTL. The data doesn't need to be retained after its lifecycle ends.
@@ -1323,8 +798,8 @@ resource "aws_iam_role_policy" "WAFGetAndUpdateIPSetbadbot" {
                 "wafv2:UpdateIPSet"
             ],
             "Resource": [
-                "${aws_wafv2_ip_set.WAFBadBotSetV4[0].arn}",
-                "${aws_wafv2_ip_set.WAFBadBotSetV6[0].arn}"
+                "${module.ip_set.ip_set["badbot_list_v4"].arn}",
+                "${module.ip_set.ip_set["badbot_list_v6"].arn}"
                 ],
             "Effect": "Allow"
         }
@@ -1704,10 +1179,10 @@ resource "aws_iam_role_policy" "WAFAccessLambdaRoleRemoveExpiredIP" {
                 "dynamodb:ListStreams"
             ],
             "Resource": [
-                "${aws_wafv2_ip_set.WAFWhitelistSetV4.arn}",
-                "${aws_wafv2_ip_set.WAFBlacklistSetV6.arn}",
-                "${aws_wafv2_ip_set.WAFWhitelistSetV6.arn}",
-                "${aws_wafv2_ip_set.WAFBlacklistSetV6.arn}"
+                "${module.ip_set.ip_set["allow_list_v4"].arn}",
+                "${module.ip_set.ip_set["deny_list_v4"].arn}",
+                "${module.ip_set.ip_set["allow_list_v6"].arn}",
+                "${module.ip_set.ip_set["deny_list_v6"].arn}"
             ],
             "Effect": "Allow"
         }
@@ -1928,8 +1403,8 @@ resource "aws_iam_role_policy" "WAFGetAndUpdateIPListsParser" {
                 "wafv2:UpdateIPSet"
             ],
             "Resource": [
-                "${aws_wafv2_ip_set.WAFReputationListsSetV4[0].arn}",
-                "${aws_wafv2_ip_set.WAFReputationListsSetV6[0].arn}"
+                "${module.ip_set.ip_set["reputation_list_v4"].arn}",
+                "${module.ip_set.ip_set["reputation_list_v6"].arn}"
                 ],
             "Effect": "Allow"
         }
@@ -2183,7 +1658,7 @@ resource "aws_iam_role_policy" "WAFAccess" {
                 "wafv2:DeleteLoggingConfiguration"
             ],
             "Resource": [
-                "${aws_wafv2_web_acl.wafacl.arn}"
+                "${module.aws_wafv2_web_acl_managed_rules.web_acl.arn}"
             ],
             "Effect": "Allow"
         }
@@ -2233,7 +1708,7 @@ resource "aws_iam_role_policy" "WAFLogsAccess" {
                 "wafv2:PutLoggingConfiguration"
             ],
             "Resource": [
-                "${aws_wafv2_web_acl.wafacl.arn}"
+                "${module.aws_wafv2_web_acl_managed_rules.web_acl.arn}"
                 ],
             "Effect": "Allow"
         },
@@ -2406,8 +1881,8 @@ resource "aws_iam_role_policy" "S3LogParser" {
                 "wafv2:UpdateIPSet"
             ],
             "Resource": [
-                "${aws_wafv2_ip_set.WAFScannersProbesSetV4[0].arn}",
-                "${aws_wafv2_ip_set.WAFScannersProbesSetV6[0].arn}"
+                "${module.ip_set.ip_set["scanner_probe_v4"].arn}",
+                "${module.ip_set.ip_set["scanner_probe_v6"].arn}"
             ],
             "Effect": "Allow"
         }
@@ -2507,8 +1982,8 @@ resource "aws_iam_role_policy" "HttpFloodProtectionLogParser" {
                 "wafv2:UpdateIPSet"
             ],
             "Resource": [
-                "${aws_wafv2_ip_set.WAFHttpFloodSetV4.arn}",
-                "${aws_wafv2_ip_set.WAFHttpFloodSetV6.arn}"
+                "${module.ip_set.ip_set["http_flood_set_v4"].arn}",
+                "${module.ip_set.ip_set["http_flood_set_v6"].arn}"
             ],
             "Effect": "Allow"
         }
@@ -2993,10 +2468,10 @@ resource "aws_lambda_function" "BadBotParser" {
       LOG_LEVEL                 = var.LOG_LEVEL
       SCOPE                     = local.SCOPE
       USER_AGENT_EXTRA          = var.USER_AGENT_EXTRA
-      IP_SET_ID_BAD_BOTV4       = aws_wafv2_ip_set.WAFBadBotSetV4[0].arn
-      IP_SET_ID_BAD_BOTV6       = aws_wafv2_ip_set.WAFBadBotSetV4[0].arn
-      IP_SET_NAME_BAD_BOTV4     = aws_wafv2_ip_set.WAFBadBotSetV4[0].name
-      IP_SET_NAME_BAD_BOTV6     = aws_wafv2_ip_set.WAFBadBotSetV4[0].name
+      IP_SET_ID_BAD_BOTV4       = module.ip_set.ip_set["badbot_list_v4"].arn
+      IP_SET_ID_BAD_BOTV6       = module.ip_set.ip_set["badbot_list_v6"].arn
+      IP_SET_NAME_BAD_BOTV4     = var.ip_set["badbot_list_v4"]["name"]
+      IP_SET_NAME_BAD_BOTV6     = var.ip_set["badbot_list_v6"]["name"]
       SEND_ANONYMOUS_USAGE_DATA = var.SEND_ANONYMOUS_USAGE_DATA
       REGION                    = data.aws_region.current.name
       LOG_TYPE                  = local.LOG_TYPE
@@ -3085,10 +2560,10 @@ resource "aws_lambda_function" "ReputationListsParser" {
     variables = {
       LOG_LEVEL                   = var.LOG_LEVEL
       USER_AGENT_EXTRA            = var.USER_AGENT_EXTRA
-      IP_SET_ID_REPUTATIONV4      = aws_wafv2_ip_set.WAFReputationListsSetV4[0].arn
-      IP_SET_ID_REPUTATIONV6      = aws_wafv2_ip_set.WAFReputationListsSetV6[0].arn
-      IP_SET_NAME_REPUTATIONV4    = aws_wafv2_ip_set.WAFReputationListsSetV4[0].name
-      IP_SET_NAME_REPUTATIONV6    = aws_wafv2_ip_set.WAFReputationListsSetV6[0].name
+      IP_SET_ID_REPUTATIONV4      = module.ip_set.ip_set["reputation_list_v4"].arn
+      IP_SET_ID_REPUTATIONV6      = module.ip_set.ip_set["reputation_list_v6"].arn
+      IP_SET_NAME_REPUTATIONV4    = var.ip_set["reputation_list_v4"]["name"]
+      IP_SET_NAME_REPUTATIONV6    = var.ip_set["reputation_list_v6"]["name"]
       SCOPE                       = local.SCOPE
       LOG_TYPE                    = local.LOG_TYPE
       SOLUTION_ID                 = var.SolutionID
@@ -3166,14 +2641,14 @@ resource "aws_lambda_function" "LogParser" {
       LOG_TYPE                                       = local.LOG_TYPE
       SOLUTION_ID                                    = var.SolutionID
       METRICS_URL                                    = var.MetricsURL
-      IP_SET_ID_HTTP_FLOODV4                         = local.WAFHttpFloodSetIPV4arn
-      IP_SET_ID_HTTP_FLOODV6                         = local.WAFHttpFloodSetIPV6arn
-      IP_SET_NAME_HTTP_FLOODV4                       = local.WAFHttpFloodSetIPV4Name
-      IP_SET_NAME_HTTP_FLOODV6                       = local.WAFHttpFloodSetIPV6Name
-      IP_SET_ID_SCANNERS_PROBESV4                    = aws_wafv2_ip_set.WAFScannersProbesSetV4[0].arn
-      IP_SET_ID_SCANNERS_PROBESV6                    = aws_wafv2_ip_set.WAFScannersProbesSetV6[0].arn
-      IP_SET_NAME_SCANNERS_PROBESV4                  = aws_wafv2_ip_set.WAFScannersProbesSetV4[0].name
-      IP_SET_NAME_SCANNERS_PROBESV6                  = aws_wafv2_ip_set.WAFScannersProbesSetV6[0].name
+      IP_SET_ID_HTTP_FLOODV4                         = module.ip_set.ip_set["http_flood_set_v4"].arn
+      IP_SET_ID_HTTP_FLOODV6                         = module.ip_set.ip_set["http_flood_set_v6"].arn
+      IP_SET_NAME_HTTP_FLOODV4                       = module.ip_set.ip_set["http_flood_set_v4"].name
+      IP_SET_NAME_HTTP_FLOODV6                       = module.ip_set.ip_set["http_flood_set_v6"].name
+      IP_SET_ID_SCANNERS_PROBESV4                    = module.ip_set.ip_set["scanner_probe_v4"].arn
+      IP_SET_ID_SCANNERS_PROBESV6                    = module.ip_set.ip_set["scanner_probe_v6"].arn
+      IP_SET_NAME_SCANNERS_PROBESV4                  = module.ip_set.ip_set["scanner_probe_v4"].name
+      IP_SET_NAME_SCANNERS_PROBESV6                  = module.ip_set.ip_set["scanner_probe_v6"].name
       WAF_BLOCK_PERIOD                               = var.WAFBlockPeriod
       ERROR_THRESHOLD                                = var.ErrorThreshold
       REQUEST_THRESHOLD                              = var.RequestThreshold
@@ -3260,31 +2735,31 @@ resource "aws_lambda_function" "CustomTimer" {
 }
 
 locals {
+  WAFWebACLName                       = "${var.stage}-web-acl"
   MoveS3LogsForPartitionarn     = length(aws_lambda_function.MoveS3LogsForPartition) != 0 ? "${aws_lambda_function.MoveS3LogsForPartition[0].arn}" : "0"
-  WAFHttpFloodSetIPV4           = length(aws_wafv2_ip_set.WAFHttpFloodSetV4) != 0 ? "${aws_wafv2_ip_set.WAFHttpFloodSetV4.id}" : "0"
-  WAFScannersProbesSetIPV4      = length(aws_wafv2_ip_set.WAFScannersProbesSetV4) != 0 ? "${aws_wafv2_ip_set.WAFScannersProbesSetV4[0].id}" : "0"
-  WAFReputationListsSetIPV4     = length(aws_wafv2_ip_set.WAFReputationListsSetV4) != 0 ? "${aws_wafv2_ip_set.WAFReputationListsSetV4[0].id}" : "0"
-  WAFBadBotSetIPV4              = length(aws_wafv2_ip_set.WAFBadBotSetV4) != 0 ? "${aws_wafv2_ip_set.WAFBadBotSetV4[0].id}" : "0"
-  WAFHttpFloodSetIPV6           = length(aws_wafv2_ip_set.WAFHttpFloodSetV6) != 0 ? "${aws_wafv2_ip_set.WAFHttpFloodSetV6.id}" : "0"
-  WAFScannersProbesSetIPV6      = length(aws_wafv2_ip_set.WAFScannersProbesSetV6) != 0 ? "${aws_wafv2_ip_set.WAFScannersProbesSetV6[0].id}" : "0"
-  WAFReputationListsSetIPV6     = length(aws_wafv2_ip_set.WAFReputationListsSetV6) != 0 ? "${aws_wafv2_ip_set.WAFReputationListsSetV6[0].id}" : "0"
-  WAFBadBotSetIPV6              = length(aws_wafv2_ip_set.WAFBadBotSetV6) != 0 ? "${aws_wafv2_ip_set.WAFBadBotSetV6[0].id}" : "0"
-  WAFHttpFloodSetIPV4Name       = length(aws_wafv2_ip_set.WAFHttpFloodSetV4) != 0 ? "${aws_wafv2_ip_set.WAFHttpFloodSetV4.name}" : "0"
-  WAFScannersProbesSetIPV4Name  = length(aws_wafv2_ip_set.WAFScannersProbesSetV4) != 0 ? "${aws_wafv2_ip_set.WAFScannersProbesSetV4[0].name}" : "0"
-  WAFReputationListsSetIPV4Name = length(aws_wafv2_ip_set.WAFReputationListsSetV4) != 0 ? "${aws_wafv2_ip_set.WAFReputationListsSetV4[0].name}" : "0"
-  WAFBadBotSetIPV4Name          = length(aws_wafv2_ip_set.WAFBadBotSetV4) != 0 ? "${aws_wafv2_ip_set.WAFBadBotSetV4[0].name}" : "0"
-  WAFHttpFloodSetIPV6Name       = length(aws_wafv2_ip_set.WAFHttpFloodSetV6) != 0 ? "${aws_wafv2_ip_set.WAFHttpFloodSetV6.name}" : "0"
-  WAFScannersProbesSetIPV6Name  = length(aws_wafv2_ip_set.WAFScannersProbesSetV6) != 0 ? "${aws_wafv2_ip_set.WAFScannersProbesSetV6[0].name}" : "0"
-  WAFReputationListsSetIPV6Name = length(aws_wafv2_ip_set.WAFReputationListsSetV6) != 0 ? "${aws_wafv2_ip_set.WAFReputationListsSetV6[0].name}" : "0"
-  WAFBadBotSetIPV6Name          = length(aws_wafv2_ip_set.WAFBadBotSetV6) != 0 ? "${aws_wafv2_ip_set.WAFBadBotSetV6[0].name}" : "0"
+  WAFScannersProbesSetIPV4      = module.ip_set.ip_set["scanner_probe_v4"].id
+  WAFReputationListsSetIPV4     = module.ip_set.ip_set["reputation_list_v4"].id
+  WAFBadBotSetIPV4              = module.ip_set.ip_set["badbot_list_v4"].id
+  WAFHttpFloodSetIPV6           = module.ip_set.ip_set["http_flood_set_v6"].id
+  WAFScannersProbesSetIPV6      = module.ip_set.ip_set["scanner_probe_v6"].id
+  WAFReputationListsSetIPV6     = module.ip_set.ip_set["reputation_list_v6"].id
+  WAFBadBotSetIPV6              = module.ip_set.ip_set["badbot_list_v6"].id
+  WAFHttpFloodSetIPV4Name       = var.ip_set["http_flood_set_v4"]["name"]
+  WAFScannersProbesSetIPV4Name  = var.ip_set["scanner_probe_v4"]["name"]
+  WAFReputationListsSetIPV4Name = var.ip_set["reputation_list_v4"]["name"]
+  WAFBadBotSetIPV4Name          = var.ip_set["badbot_list_v4"]["name"]
+  WAFHttpFloodSetIPV6Name       = var.ip_set["http_flood_set_v6"]["name"]
+  WAFScannersProbesSetIPV6Name  = var.ip_set["scanner_probe_v6"]["name"]
+  WAFReputationListsSetIPV6Name = var.ip_set["reputation_list_v6"]["name"]
+  WAFBadBotSetIPV6Name          = var.ip_set["badbot_list_v6"]["name"]
   AddAthenaPartitionsLambdaarn  = length(aws_lambda_function.AddAthenaPartitions) != 0 ? "${aws_lambda_function.AddAthenaPartitions[0].arn}" : "0"
   LogParserarn                  = length(aws_lambda_function.LogParser) != 0 ? "${aws_lambda_function.LogParser[0].arn}" : "0"
   GlueAccessLogsDatabase        = length(aws_glue_catalog_database.mydatabase) != 0 ? "${aws_glue_catalog_database.mydatabase[0].name}" : "0"
   GlueWafAccessLogsTable        = length(aws_glue_catalog_table.waf_access_logs_table) != 0 ? "${aws_glue_catalog_table.waf_access_logs_table[0].name}" : "0"
   AthenaWorkGroup               = length(aws_athena_workgroup.WAFAddPartitionAthenaQueryWorkGroup) != 0 ? "${aws_athena_workgroup.WAFAddPartitionAthenaQueryWorkGroup[0].name}" : "0"
   AppAccessLogsTable            = (local.CloudFrontScannersProbesAthenaLogParser == "yes" ? "${aws_glue_catalog_table.cloudfrontGlueAppAccessLogsTable[0].name}" : (local.ALBScannersProbesAthenaLogParser == "yes" ? "${aws_glue_catalog_table.ALBGlueAppAccessLogsTable[0].name}" : "0"))
-  WAFHttpFloodSetIPV4arn        = length(aws_wafv2_ip_set.WAFHttpFloodSetV4) != 0 ? "${aws_wafv2_ip_set.WAFHttpFloodSetV4.arn}" : "0"
-  WAFHttpFloodSetIPV6arn        = length(aws_wafv2_ip_set.WAFHttpFloodSetV6) != 0 ? "${aws_wafv2_ip_set.WAFHttpFloodSetV6.arn}" : "0"
+  WAFHttpFloodSetIPV4arn        = module.ip_set.ip_set["http_flood_set_v4"].arn
+  WAFHttpFloodSetIPV6arn        = module.ip_set.ip_set["http_flood_set_v6"].arn
   DeliveryStreamArn             = length(aws_kinesis_firehose_delivery_stream.extended_s3_stream) != 0 ? "${aws_kinesis_firehose_delivery_stream.extended_s3_stream[0].arn}" : "0"
   WafLogBucket                  = length(aws_s3_bucket.WafLogBucket) != 0 ? "${aws_s3_bucket.WafLogBucket[0].bucket}" : "0"
 }
@@ -3308,7 +2783,7 @@ resource "aws_cloudformation_stack" "trigger_codebuild_stack" {
     ReputationListsParserarn                  = aws_lambda_function.ReputationListsParser[0].arn
     ReputationListsProtectionActivated        = var.ReputationListsProtectionActivated
     CustomResourcearn                         = aws_lambda_function.CustomResource.arn
-    WAFWebACLArn                              = aws_wafv2_web_acl.wafacl.arn
+    WAFWebACLArn                              = module.aws_wafv2_web_acl_managed_rules.web_acl.arn
     DeliveryStreamArn                         = local.DeliveryStreamArn
     LogParser                                 = local.LogParserarn
     ScannersProbesAthenaLogParser             = local.ScannersProbesAthenaLogParser
@@ -3336,31 +2811,31 @@ resource "aws_cloudformation_stack" "trigger_codebuild_stack" {
     SNSEmailParam                             = var.SNSEmailParam
     version                                   = "v3.2.0"
     ErrorThreshold                            = var.ErrorThreshold
-    WAFWhitelistSetIPV4                       = aws_wafv2_ip_set.WAFWhitelistSetV4.id
-    WAFBlacklistSetIPV4                       = aws_wafv2_ip_set.WAFBlacklistSetV4.id
+    WAFWhitelistSetIPV4                       = module.ip_set.ip_set["allow_list_v4"].arn
+    WAFBlacklistSetIPV4                       = module.ip_set.ip_set["deny_list_v4"].arn
     WAFHttpFloodSetIPV4                       = local.WAFHttpFloodSetIPV4
     WAFScannersProbesSetIPV4                  = local.WAFScannersProbesSetIPV4
     WAFReputationListsSetIPV4                 = local.WAFReputationListsSetIPV4
     WAFBadBotSetIPV4                          = local.WAFBadBotSetIPV4
-    WAFWhitelistSetIPV6                       = aws_wafv2_ip_set.WAFWhitelistSetV6.id
-    WAFBlacklistSetIPV6                       = aws_wafv2_ip_set.WAFBlacklistSetV6.id
+    WAFWhitelistSetIPV6                       = module.ip_set.ip_set["allow_list_v6"].arn
+    WAFBlacklistSetIPV6                       = module.ip_set.ip_set["deny_list_v6"].arn
     WAFHttpFloodSetIPV6                       = local.WAFHttpFloodSetIPV6
     WAFScannersProbesSetIPV6                  = local.WAFScannersProbesSetIPV6
     WAFReputationListsSetIPV6                 = local.WAFReputationListsSetIPV6
     WAFBadBotSetIPV6                          = local.WAFBadBotSetIPV6
-    WAFWhitelistSetIPV4Name                   = aws_wafv2_ip_set.WAFWhitelistSetV4.name
-    WAFBlacklistSetIPV4Name                   = aws_wafv2_ip_set.WAFBlacklistSetV4.name
+    WAFWhitelistSetIPV4Name                   = var.ip_set["allow_list_v4"]["name"]
+    WAFBlacklistSetIPV4Name                   = var.ip_set["deny_list_v4"]["name"]
     WAFHttpFloodSetIPV4Name                   = local.WAFHttpFloodSetIPV4Name
     WAFScannersProbesSetIPV4Name              = local.WAFScannersProbesSetIPV4Name
     WAFReputationListsSetIPV4Name             = local.WAFReputationListsSetIPV4Name
     WAFBadBotSetIPV4Name                      = local.WAFBadBotSetIPV4Name
-    WAFWhitelistSetIPV6Name                   = aws_wafv2_ip_set.WAFWhitelistSetV6.name
-    WAFBlacklistSetIPV6Name                   = aws_wafv2_ip_set.WAFBlacklistSetV6.name
+    WAFWhitelistSetIPV6Name                   = var.ip_set["allow_list_v6"]["name"]
+    WAFBlacklistSetIPV6Name                   = var.ip_set["deny_list_v6"]["name"]
     WAFHttpFloodSetIPV6Name                   = local.WAFHttpFloodSetIPV6Name
     WAFScannersProbesSetIPV6Name              = local.WAFScannersProbesSetIPV6Name
     WAFReputationListsSetIPV6Name             = local.WAFReputationListsSetIPV6Name
     WAFBadBotSetIPV6Name                      = local.WAFBadBotSetIPV6Name
-    wafwebacl                                 = aws_wafv2_web_acl.wafacl.name
+    wafwebacl                                 = local.WAFWebACLName
     AddAthenaPartitionsLambdaarn              = local.AddAthenaPartitionsLambdaarn
     ResourceType                              = "CustomResource"
     GlueAccessLogsDatabase                    = local.GlueAccessLogsDatabase
@@ -4120,8 +3595,8 @@ resource "aws_kinesis_firehose_delivery_stream" "extended_s3_stream" {
     compression_format  = "GZIP"
     error_output_prefix = "AWSErrorLogs/result=!{firehose:error-output-type}/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/"
     role_arn            = aws_iam_role.FirehoseWAFLogsDeliveryStreamRole[0].arn
-    buffer_size         = 5
-    buffer_interval     = 300
+    buffering_size         = 5
+    buffering_interval     = 300
   }
 }
 
@@ -4453,10 +3928,10 @@ resource "aws_cloudwatch_event_target" "ReputationListsParsertarget" {
                   {"url":"https://check.torproject.org/exit-addresses", "prefix":"ExitAddress"},
                   {"url":"https://rules.emergingthreats.net/fwrules/emerging-Block-IPs.txt"}
                 ],
-                "IP_SET_ID_REPUTATIONV4": "${aws_wafv2_ip_set.WAFReputationListsSetV4[0].arn}",
-                "IP_SET_ID_REPUTATIONV6": "${aws_wafv2_ip_set.WAFReputationListsSetV6[0].arn}",
-                "IP_SET_NAME_REPUTATIONV4": "${aws_wafv2_ip_set.WAFReputationListsSetV4[0].name}",
-                "IP_SET_NAME_REPUTATIONV6": "${aws_wafv2_ip_set.WAFReputationListsSetV6[0].name}",
+                "IP_SET_ID_REPUTATIONV4": "${module.ip_set.ip_set["reputation_list_v4"].arn}",
+                "IP_SET_ID_REPUTATIONV6": "${module.ip_set.ip_set["reputation_list_v6"].arn}",
+                "IP_SET_NAME_REPUTATIONV4": "${var.ip_set["reputation_list_v4"]["name"]}",
+                "IP_SET_NAME_REPUTATIONV6": "${var.ip_set["reputation_list_v6"]["name"]}",
                 "SCOPE": "${local.SCOPE}"
               }
 EOF
@@ -4478,10 +3953,10 @@ resource "aws_cloudwatch_event_rule" "SetIPRetentionEventsRule" {
     "eventSource": ["wafv2.amazonaws.com"],
     "eventName": ["UpdateIPSet"],
     "requestParameters" : [
-        "${aws_wafv2_ip_set.WAFWhitelistSetV4.name}",
-        "${aws_wafv2_ip_set.WAFBlacklistSetV4.name}",
-        "${aws_wafv2_ip_set.WAFWhitelistSetV6.name}",
-        "${aws_wafv2_ip_set.WAFBlacklistSetV6.name}"
+        "${module.ip_set.ip_set["allow_list_v4"].arn}",
+        "${module.ip_set.ip_set["deny_list_v4"].arn}",
+        "${module.ip_set.ip_set["allow_list_v6"].arn}",
+        "${module.ip_set.ip_set["deny_list_v6"].arn}"
     ]
 
   }
