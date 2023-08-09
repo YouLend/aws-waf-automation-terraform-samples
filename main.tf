@@ -16,57 +16,62 @@ locals {
 }
 
 
+data "aws_iam_policy_document" "waf" {
+  policy_id = "key-policy-waf"
+  statement {
+    sid    = "Enable IAM User Permissions"
+    effect = "Allow"
+    principals {
+      type = "AWS"
+      identifiers = [
+        "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root",
+        "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/Tf-Security-Waf-Role",
+      ]
+    }
+    actions   = ["kms:*"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "AllowLambda"
+    actions = [
+      "kms:Encrypt*",
+      "kms:Decrypt*",
+      "kms:ReEncrypt*",
+      "kms:GenerateDataKey*",
+      "kms:Describe*"
+    ]
+    effect = "Allow"
+    principals {
+      type = "Service"
+      identifiers = [
+        format(
+          "lambda.%s.amazonaws.com",
+          data.aws_region.current.name,
+        ),
+        format(
+          "logs.%s.amazonaws.com",
+          data.aws_region.current.name,
+        )
+      ]
+    }
+    resources = ["*"]
+  }
+}
+
 resource "aws_kms_key" "wafkey" {
-  description         = "KMS key 1"
-  enable_key_rotation = true
-  policy              = <<EOF
-{
-  "Version" : "2012-10-17",
-  "Id" : "key-default-1",
-  "Statement" : [ {
-      "Sid" : "Enable IAM User Permissions",
-      "Effect" : "Allow",
-      "Principal" : {
-        "AWS" : "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
-      },
-        "Action": [ 
-          "kms:Create*",
-          "kms:Describe*",
-          "kms:Enable*",
-          "kms:List*",
-          "kms:Put*",
-          "kms:Update*",
-          "kms:Revoke*",
-          "kms:Disable*",
-          "kms:GenerateDataKey*",
-          "kms:Get*",
-          "kms:Delete*",
-          "kms:ScheduleKeyDeletion",
-          "kms:ListAliases",
-          "kms:CreateGrant",
-          "kms:Encrypt*",
-          "kms:Decrypt*",
-          "kms:ReEncrypt*",
-          "kms:CancelKeyDeletion"
-      ],
-      "Resource" : "*"
-    },
-    {
-      "Effect": "Allow",
-      "Principal": { "Service": "logs.${data.aws_region.current.name}.amazonaws.com" },
-      "Action": [ 
-        "kms:Encrypt*",
-        "kms:Decrypt*",
-        "kms:ReEncrypt*",
-        "kms:GenerateDataKey*",
-        "kms:Describe*"
-      ],
-      "Resource": "*"
-    }  
-  ]
+  description             = var.kms_description
+  deletion_window_in_days = var.key_deletion_window_in_days
+  enable_key_rotation     = "true"
+  policy                  = data.aws_iam_policy_document.waf.json
 }
-EOF
+
+resource "aws_kms_alias" "wafkey" {
+  name          = var.kms_name
+  target_key_id = aws_kms_key.wafkey.key_id
 }
+
+
 
 resource "aws_sns_topic" "user_updates" {
   count             = local.SNSEmail == "yes" ? 1 : 0
@@ -141,7 +146,6 @@ data "aws_iam_policy_document" "sns_topic_policy" {
 resource "aws_s3_bucket" "WafLogBucket" {
   count         = local.HttpFloodProtectionLogParserActivated == "yes" ? 1 : 0
   bucket        = "${random_id.server.hex}-waflogbucket"
-  acl           = "private"
   force_destroy = true
   versioning {
     enabled = true
@@ -183,7 +187,8 @@ resource "aws_s3_bucket_policy" "wafbucketpolicy" {
             "Effect": "Allow",
             "Principal": {
                 "AWS": [
-                "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:role/${aws_iam_role.s3bucketaccessrole.name}"
+                "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:role/${aws_iam_role.s3bucketaccessrole.name}",
+                "${aws_iam_role.LambdaRoleLogParser[0].arn}"
                 ]
             },
             "Action": "s3:*",
@@ -311,7 +316,6 @@ resource "aws_iam_role_policy_attachment" "test-attach" {
 resource "aws_s3_bucket" "accesslogbucket" {
   count         = local.LogParser == "yes" ? 1 : 0
   bucket        = "${random_id.server.hex}-accesslogging"
-  acl           = "log-delivery-write"
   force_destroy = true
   versioning {
     enabled = true
@@ -349,7 +353,8 @@ resource "aws_s3_bucket_policy" "b" {
             "Effect": "Allow",
             "Principal": {
                 "AWS": [
-                "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:role/${aws_iam_role.s3bucketaccessrole.name}"
+                "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:role/${aws_iam_role.s3bucketaccessrole.name}",
+                "${aws_iam_role.LambdaRoleLogParser[0].arn}"
                 ]
             },
             "Action": "s3:*",
@@ -4120,8 +4125,8 @@ resource "aws_kinesis_firehose_delivery_stream" "extended_s3_stream" {
     compression_format  = "GZIP"
     error_output_prefix = "AWSErrorLogs/result=!{firehose:error-output-type}/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/"
     role_arn            = aws_iam_role.FirehoseWAFLogsDeliveryStreamRole[0].arn
-    buffer_size         = 5
-    buffer_interval     = 300
+    buffering_size         = 5
+    buffering_interval     = 300
   }
 }
 
